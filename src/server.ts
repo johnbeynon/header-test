@@ -81,7 +81,9 @@ async function selfTest(res: ServerResponse): Promise<void> {
         });
         const text = await response.text();
         if (!response.ok) {
-          return { header, sent, blocked: true, status: response.status, body: text.slice(0, 200) };
+          // Cloudflare serves a full HTML error page to non-browser clients; its title is the useful part.
+          const title = text.match(/<title>([^<]*)<\/title>/i)?.[1];
+          return { header, sent, blocked: true, status: response.status, body: (title ?? text).slice(0, 200) };
         }
         const received = JSON.parse(text) as HeaderSnapshot;
         return { header, sent, blocked: false, status: response.status, received: received.ipHeaders };

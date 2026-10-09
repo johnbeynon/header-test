@@ -9,10 +9,20 @@ A small TypeScript service (no runtime dependencies) that shows what client IP h
 ## What the page shows
 
 1. **Your normal request**: the headers the service receives for a plain request from your browser. This is your real IP.
-2. **Spoof attempt from your browser**: your browser calls `/api/headers` with random fake IPs (from the RFC 5737 documentation ranges) in each header. The table compares what was sent with what was received. Behind Render, `CF-Connecting-IP` and `True-Client-IP` are overwritten with your real IP.
-3. **Server-to-self spoof attempt**: the service calls its own public URL (`RENDER_EXTERNAL_URL`) with fake headers. The received values show Render's outbound IP, not the fake ones.
+2. **Spoof attempt from your browser**: your browser sends one request per header to `/api/headers`, each with a random fake IP (from the RFC 5737 documentation ranges). The table compares what was sent with what was received.
+3. **Server-to-self spoof attempt**: the service calls its own public URL (`RENDER_EXTERNAL_URL`) with the same fake headers. The real client is then Render's outbound IP.
 
-If you run it locally there's no edge proxy, so the spoofed values pass straight through. That's the contrast the demo is meant to show.
+### Observed behaviour on Render
+
+| Spoofed header | Result |
+| --- | --- |
+| `CF-Connecting-IP` | Cloudflare rejects the request with `403 error code: 1000`. It never reaches the service. |
+| `True-Client-IP` | Overwritten with the real client IP. |
+| `X-Forwarded-For` | The fake value is kept and the real IP is appended, e.g. `192.0.2.44,81.107.0.110, 172.71.x.x, 10.x.x.x`. Don't trust the leftmost entry. |
+
+A request without spoofed headers receives `CF-Connecting-IP` and `True-Client-IP` set to the real client IP.
+
+If you run it locally there's no edge proxy, so every spoofed value passes straight through.
 
 ## Endpoints
 
@@ -35,8 +45,7 @@ npm run dev   # http://localhost:3000
 Push this repo to GitHub/GitLab, then in the Render Dashboard choose **New > Blueprint** and select the repo. `render.yaml` defines a free Node web service.
 
 ```sh
-curl -s https://<your-service>.onrender.com/api/headers \
-  -H 'CF-Connecting-IP: 203.0.113.7' \
-  -H 'True-Client-IP: 198.51.100.9' \
-  -H 'X-Forwarded-For: 192.0.2.44'
+curl -s https://<your-service>.onrender.com/api/headers -H 'CF-Connecting-IP: 203.0.113.7'
+curl -s https://<your-service>.onrender.com/api/headers -H 'True-Client-IP: 198.51.100.9'
+curl -s https://<your-service>.onrender.com/api/headers -H 'X-Forwarded-For: 192.0.2.44'
 ```

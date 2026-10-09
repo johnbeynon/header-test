@@ -16,6 +16,8 @@ const IP_HEADERS = [
   "cf-ray",
 ] as const;
 
+const SPOOF_HEADERS = ["cf-connecting-ip", "true-client-ip", "x-forwarded-for"] as const;
+
 type HeaderSnapshot = {
   receivedAt: string;
   method: string;
@@ -66,22 +68,29 @@ async function selfTest(res: ServerResponse): Promise<void> {
     return;
   }
 
-  const sent = {
-    "cf-connecting-ip": randomFakeIp(),
-    "true-client-ip": randomFakeIp(),
-    "x-forwarded-for": randomFakeIp(),
-  };
-
-  try {
-    const response = await fetch(`${EXTERNAL_URL}/api/headers`, {
-      headers: sent,
-      signal: AbortSignal.timeout(10_000),
-    });
-    const received = (await response.json()) as HeaderSnapshot;
-    sendJson(res, 200, { target: `${EXTERNAL_URL}/api/headers`, sent, received });
-  } catch (err) {
-    sendJson(res, 502, { error: `Self-request failed: ${(err as Error).message}`, sent });
-  }
+  const target = `${EXTERNAL_URL}/api/headers`;
+  // One request per header: Cloudflare rejects any request carrying a client-supplied
+  // CF-Connecting-IP, which would otherwise hide the results for the other headers.
+  const results = await Promise.all(
+    SPOOF_HEADERS.map(async (header) => {
+      const sent = randomFakeIp();
+      try {
+        const response = await fetch(target, {
+          headers: { [header]: sent },
+          signal: AbortSignal.timeout(10_000),
+        });
+        const text = await response.text();
+        if (!response.ok) {
+          return { header, sent, blocked: true, status: response.status, body: text.slice(0, 200) };
+        }
+        const received = JSON.parse(text) as HeaderSnapshot;
+        return { header, sent, blocked: false, status: response.status, received: received.ipHeaders };
+      } catch (err) {
+        return { header, sent, blocked: true, status: null, body: (err as Error).message };
+      }
+    }),
+  );
+  sendJson(res, 200, { target, results });
 }
 
 const server = createServer((req, res) => {

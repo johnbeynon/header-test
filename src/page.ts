@@ -39,16 +39,16 @@ export const PAGE_HTML = /* html */ `<!doctype html>
 
 <section>
   <h2>2. Spoof attempt from your browser</h2>
-  <p class="muted">Your browser sends a request to this service with random fake IPs (from the RFC 5737 documentation ranges) set in each header. If the edge is doing its job, the service receives <em>your</em> IP, not the fake one.</p>
-  <button id="spoof-btn">Send spoofed request</button>
+  <p class="muted">Your browser sends one request per header, each with a random fake IP (from the RFC 5737 documentation ranges). The table shows whether the fake value reached the service, was overwritten with your real IP, or was blocked at the edge.</p>
+  <button id="spoof-btn">Send spoofed requests</button>
   <table id="spoof" style="margin-top:1rem"></table>
   <p id="spoof-note" class="muted"></p>
-  <details><summary>All received headers</summary><pre id="spoof-raw"></pre></details>
+  <details><summary>Raw results</summary><pre id="spoof-raw"></pre></details>
 </section>
 
 <section>
   <h2>3. Server-to-self spoof attempt</h2>
-  <p class="muted">The service calls its own public URL with fake headers. The request goes out to the internet and back in through the edge. Here the real client is Render's outbound IP, not you, so the received values should match neither the fake IPs nor your IP.</p>
+  <p class="muted">The service calls its own public URL with the same fake headers. The request goes out to the internet and back in through the edge. Here the real client is Render's outbound IP, not you.</p>
   <button id="self-btn">Run self-test</button>
   <table id="self" style="margin-top:1rem"></table>
   <details><summary>Raw result</summary><pre id="self-raw"></pre></details>
@@ -94,12 +94,30 @@ function renderTable(table, headerCells, rows) {
 
 function mono(text) { return el("td", text ?? "(not present)", "mono"); }
 
-// A spoofed value "leaked" if the fake IP appears anywhere in what the service received.
-function verdict(sentValue, receivedValue) {
-  if (receivedValue && receivedValue.includes(sentValue)) {
-    return el("td", "Spoofed value passed through", "bad");
+// result: { header, sent, blocked, status, body?, received? }
+function verdict(result) {
+  if (result.blocked) {
+    return el("td", "Blocked at edge (HTTP " + (result.status ?? "error") + ": " + (result.body ?? "").trim() + ")", "ok");
+  }
+  const got = result.received[result.header];
+  if (got && got.includes(result.sent)) {
+    return el("td", got.trim() === result.sent ? "Spoofed value passed through" : "Spoofed value kept, real IP appended", "bad");
   }
   return el("td", "Overwritten by edge", "ok");
+}
+
+function resultRows(results) {
+  return results.map((r) =>
+    row([mono(r.header), mono(r.sent), mono(r.blocked ? "(request never reached the service)" : r.received[r.header]), verdict(r)]));
+}
+
+// Sends one request with a single spoofed header and reports what happened.
+async function spoofOne(header) {
+  const sent = fakeIp();
+  const r = await fetch("/api/headers", { cache: "no-store", headers: { [header]: sent } });
+  const text = await r.text();
+  if (!r.ok) return { header, sent, blocked: true, status: r.status, body: text.slice(0, 200) };
+  return { header, sent, blocked: false, status: r.status, received: JSON.parse(text).ipHeaders };
 }
 
 async function getJson(url, init) {
@@ -119,22 +137,17 @@ function yourIp() {
   return baseline?.ipHeaders["cf-connecting-ip"] ?? baseline?.ipHeaders["true-client-ip"] ?? null;
 }
 
+const RESULT_COLUMNS = ["Header", "Sent (fake)", "Received by service", "Result"];
+
 document.getElementById("spoof-btn").addEventListener("click", async (e) => {
   const btn = e.currentTarget;
   btn.disabled = true;
   try {
-    const sent = {};
-    for (const h of SPOOF_HEADERS) sent[h] = fakeIp();
-    const received = await getJson("/api/headers", { headers: sent });
-    const rows = SPOOF_HEADERS.map((h) => {
-      const got = received.ipHeaders[h];
-      return row([mono(h), mono(sent[h]), mono(got), verdict(sent[h], got)]);
-    });
-    renderTable(document.getElementById("spoof"),
-      ["Header", "Sent (fake)", "Received by service", "Result"], rows);
+    const results = await Promise.all(SPOOF_HEADERS.map(spoofOne));
+    renderTable(document.getElementById("spoof"), RESULT_COLUMNS, resultRows(results));
     document.getElementById("spoof-note").textContent =
       "Your IP from the baseline request: " + (yourIp() ?? "unknown");
-    document.getElementById("spoof-raw").textContent = JSON.stringify(received.allHeaders, null, 2);
+    document.getElementById("spoof-raw").textContent = JSON.stringify(results, null, 2);
   } finally {
     btn.disabled = false;
   }
@@ -150,22 +163,22 @@ document.getElementById("self-btn").addEventListener("click", async (e) => {
       renderTable(document.getElementById("self"), ["Error"], [row([el("td", result.error, "bad")])]);
       return;
     }
-    const rows = SPOOF_HEADERS.map((h) => {
-      const got = result.received.ipHeaders[h];
-      return row([mono(h), mono(result.sent[h]), mono(got), verdict(result.sent[h], got)]);
-    });
-    renderTable(document.getElementById("self"),
-      ["Header", "Sent (fake)", "Received by service", "Result"], rows);
+    renderTable(document.getElementById("self"), RESULT_COLUMNS, resultRows(result.results));
   } finally {
     btn.disabled = false;
   }
 });
 
-document.getElementById("curl").textContent =
-  "curl -s " + location.origin + "/api/headers \\\\\\n" +
-  "  -H 'CF-Connecting-IP: 203.0.113.7' \\\\\\n" +
-  "  -H 'True-Client-IP: 198.51.100.9' \\\\\\n" +
-  "  -H 'X-Forwarded-For: 192.0.2.44'";
+document.getElementById("curl").textContent = [
+  "# Blocked by Cloudflare (403, error code 1000)",
+  "curl -s " + location.origin + "/api/headers -H 'CF-Connecting-IP: 203.0.113.7'",
+  "",
+  "# Overwritten with your real IP",
+  "curl -s " + location.origin + "/api/headers -H 'True-Client-IP: 198.51.100.9'",
+  "",
+  "# Fake value kept, real IP appended",
+  "curl -s " + location.origin + "/api/headers -H 'X-Forwarded-For: 192.0.2.44'",
+].join("\\n");
 
 loadBaseline().catch((err) => {
   document.getElementById("baseline").replaceChildren(row([el("td", "Failed: " + err.message, "bad")]));

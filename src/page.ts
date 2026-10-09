@@ -6,59 +6,130 @@ export const PAGE_HTML = /* html */ `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Client IP header test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500&family=Roboto+Mono:wght@400;500&display=swap">
 <style>
-  :root { --ok: #127a3b; --bad: #b42318; --muted: #667085; --border: #d0d5dd; }
-  body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem; color: #101828; }
-  h1 { margin-bottom: .25rem; }
-  p.lead { color: var(--muted); margin-top: 0; }
-  section { border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin: 1.25rem 0; }
-  h2 { margin-top: 0; font-size: 1.15rem; }
-  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
-  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid #eaecf0; vertical-align: top; }
-  th { color: var(--muted); font-weight: 600; }
-  code, td.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  button { font: inherit; padding: .5rem 1rem; border-radius: 6px; border: 1px solid #344054; background: #101828; color: white; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: wait; }
-  .ok { color: var(--ok); font-weight: 600; }
-  .bad { color: var(--bad); font-weight: 600; }
-  .muted { color: var(--muted); }
-  pre { background: #f9fafb; border: 1px solid #eaecf0; padding: .75rem; overflow: auto; font-size: .8rem; max-height: 320px; }
-  details summary { cursor: pointer; color: var(--muted); }
+  /* Render brand foundations. Brand faces are licensed for internal use only, so this
+     public page names them first but loads the open-licensed fallbacks. */
+  :root {
+    --bg: #ffffff; --bg-secondary: #fafafa; --border: #e3e3e3;
+    --text: #0d0d0d; --text-secondary: #4d4d4d; --text-faint: #6b6b6b;
+    --link: #8a05ff; --link-hover: #48008c; --accent: #8a05ff; --accent-strong: #48008c;
+    --chip-bg: #f0f0f0; --row-hover: rgba(0, 0, 0, 0.02);
+    --success: #006d4c; --error: #e23642;
+    --font-brand: 'Roobert', 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    --font-default: 'PP Neue Montreal', 'Manrope', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'PP Neue Montreal Mono', 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --ease: cubic-bezier(0.9, 0.1, 0.1, 0.9);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d0d0d; --bg-secondary: #141414; --border: #272727;
+      --text: #ffffff; --text-secondary: #c7c7c7; --text-faint: #b3b3b3;
+      --link: #d1b8ff; --link-hover: #e7dbff; --accent-strong: #c29eff;
+      --chip-bg: #141414; --row-hover: rgba(255, 255, 255, 0.03);
+      --success: #5cffb8; --error: #f0989e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/24px var(--font-default); letter-spacing: 0.01em; }
+  main { max-width: 1024px; margin: 0 auto; padding: 48px 32px 64px; display: flex; flex-direction: column; gap: 32px; }
+  header { display: flex; flex-direction: column; gap: 12px; }
+  h1 { margin: 0; font: 300 40px/44px var(--font-brand); letter-spacing: -0.015em; }
+  h2 { margin: 0; font: 400 24px/28px var(--font-brand); letter-spacing: -0.01em; }
+  p { margin: 0; max-width: 62ch; color: var(--text-secondary); }
+  .lead { font-size: 18px; line-height: 26px; }
+  .overline { font: 500 12px/16px var(--font-mono); letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-faint); }
+  .muted { color: var(--text-faint); font-size: 14px; line-height: 20px; }
+  section { display: flex; flex-direction: column; gap: 16px; padding-top: 32px; border-top: 1px solid var(--border); }
+  .section-head { display: flex; flex-direction: column; gap: 8px; }
+  a { color: var(--link); text-decoration: none; background: linear-gradient(currentColor, currentColor) 0 100% / 0 1px no-repeat; transition: background-size 200ms var(--ease); }
+  a:hover { color: var(--link-hover); background-size: 100% 1px; }
+  @media (prefers-reduced-motion: reduce) { a { transition: none; } }
+  code { font: 400 0.875em var(--font-mono); background: var(--chip-bg); padding: 1px 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; border: 1px solid var(--border); }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font: 500 11px/14px var(--font-mono); letter-spacing: 0.025em; text-transform: uppercase; color: var(--text-faint); background: var(--bg-secondary); }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.mono { font-family: var(--font-mono); word-break: break-all; }
+  table:empty, p:empty { display: none; }
+  th:first-child { width: 34%; }
+  .actions { display: flex; gap: 12px; }
+  button { font: 400 16px/24px var(--font-default); padding: 8px 16px; border: 1px solid var(--text); border-radius: 0; cursor: pointer; }
+  button.primary { background: var(--text); color: var(--bg); }
+  button.primary:hover { background: var(--accent); border-color: var(--accent); color: #ffffff; }
+  button.secondary { background: transparent; color: var(--text); }
+  button.secondary:hover { color: var(--accent-strong); border-color: var(--accent-strong); }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .ok { color: var(--success); }
+  .bad { color: var(--error); }
+  pre { margin: 0; background: #141414; color: #f0f0f0; padding: 16px; overflow: auto; font: 400 13px/20px var(--font-mono); max-height: 320px; }
+  details { display: flex; flex-direction: column; gap: 8px; }
+  details[open] summary { margin-bottom: 8px; }
+  summary { cursor: pointer; font: 500 12px/16px var(--font-mono); letter-spacing: 0.02em; text-transform: uppercase; color: var(--text-faint); }
+  summary:hover { color: var(--text); }
+  @media (max-width: 767px) {
+    main { padding: 32px 16px 48px; gap: 24px; }
+    h1 { font-size: 32px; line-height: 36px; }
+    .actions { flex-direction: column; }
+    button { width: 100%; min-height: 44px; }
+    th, td { padding: 8px; }
+  }
 </style>
 </head>
 <body>
-<h1>Client IP header test</h1>
-<p class="lead">What do <code>X-Forwarded-For</code>, <code>CF-Connecting-IP</code> and <code>True-Client-IP</code> actually contain by the time a request reaches this service?</p>
-<p class="muted">Reference: <a href="https://developers.cloudflare.com/fundamentals/reference/http-headers/" target="_blank" rel="noopener">Cloudflare HTTP headers documentation</a></p>
+<main>
+<header>
+  <span class="overline">Render edge headers</span>
+  <h1>Client IP header test</h1>
+  <p class="lead">What do <code>X-Forwarded-For</code>, <code>CF-Connecting-IP</code> and <code>True-Client-IP</code> contain by the time a request reaches this service?</p>
+  <p class="muted">Reference: <a href="https://developers.cloudflare.com/fundamentals/reference/http-headers/" target="_blank" rel="noopener">Cloudflare HTTP headers documentation</a></p>
+</header>
 
 <section>
-  <h2>1. Your normal request</h2>
-  <p class="muted">A plain request from your browser with no custom headers. This is your baseline "real" client IP as seen by the service. The <code>cf-ray</code> row shows what the service received. The last row shows the <code>cf-ray</code> Cloudflare returned to your browser for the same request. The ray ID matches, but the data center suffix can differ: the request enters Cloudflare near you and may leave from a data center near the origin.</p>
+  <div class="section-head">
+    <span class="overline">01</span>
+    <h2>Your normal request</h2>
+    <p>A plain request from your browser with no custom headers. This is your baseline "real" client IP as seen by the service. The <code>cf-ray</code> row shows what the service received. The last row shows the <code>cf-ray</code> Cloudflare returned to your browser for the same request. The ray ID matches, but the data center suffix can differ: the request enters Cloudflare near you and may leave from a data center near the origin.</p>
+  </div>
   <table id="baseline"><tbody><tr><td class="muted">Loading…</td></tr></tbody></table>
   <details><summary>All received headers</summary><pre id="baseline-raw"></pre></details>
 </section>
 
 <section>
-  <h2>2. Spoof attempt from your browser</h2>
-  <p class="muted">Your browser sends one request per header, each with a random fake IP (from the RFC 5737 documentation ranges). The table shows whether the fake value reached the service, was overwritten with your real IP, or was blocked at the edge.</p>
-  <button id="spoof-btn">Send spoofed requests</button>
-  <table id="spoof" style="margin-top:1rem"></table>
+  <div class="section-head">
+    <span class="overline">02</span>
+    <h2>Spoof attempt from your browser</h2>
+    <p>Your browser sends one request per header, each with a random fake IP (from the RFC 5737 documentation ranges). The table shows whether the fake value reached the service, was overwritten with your real IP, or was blocked at the edge.</p>
+  </div>
+  <div class="actions"><button id="spoof-btn" class="primary">Send spoofed requests</button></div>
+  <table id="spoof"></table>
   <p id="spoof-note" class="muted"></p>
   <details><summary>Raw results</summary><pre id="spoof-raw"></pre></details>
 </section>
 
 <section>
-  <h2>3. Server-to-self spoof attempt</h2>
-  <p class="muted">The service calls its own public URL with the same fake headers. The request goes out to the internet and back in through the edge. Here the real client is Render's outbound IP, not you.</p>
-  <button id="self-btn">Run self-test</button>
-  <table id="self" style="margin-top:1rem"></table>
+  <div class="section-head">
+    <span class="overline">03</span>
+    <h2>Server-to-self spoof attempt</h2>
+    <p>The service calls its own public URL with the same fake headers. The request goes out to the internet and back in through the edge. Here the real client is Render's outbound IP, not you.</p>
+  </div>
+  <div class="actions"><button id="self-btn" class="secondary">Run self-test</button></div>
+  <table id="self"></table>
   <details><summary>Raw result</summary><pre id="self-raw"></pre></details>
 </section>
 
 <section>
-  <h2>Try it with curl</h2>
+  <div class="section-head">
+    <span class="overline">04</span>
+    <h2>Try it with curl</h2>
+  </div>
   <pre id="curl"></pre>
 </section>
+</main>
 
 <script>
 const SPOOF_HEADERS = ["cf-connecting-ip", "true-client-ip", "x-forwarded-for"];

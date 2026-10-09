@@ -33,7 +33,7 @@ export const PAGE_HTML = /* html */ `<!doctype html>
 
 <section>
   <h2>1. Your normal request</h2>
-  <p class="muted">A plain request from your browser with no custom headers. This is your baseline "real" client IP as seen by the service.</p>
+  <p class="muted">A plain request from your browser with no custom headers. This is your baseline "real" client IP as seen by the service. The <code>cf-ray</code> row shows what the service received. The last row shows the <code>cf-ray</code> Cloudflare returned to your browser for the same request. The ray ID matches, but the data center suffix can differ: the request enters Cloudflare near you and may leave from a data center near the origin.</p>
   <table id="baseline"><tbody><tr><td class="muted">Loading…</td></tr></tbody></table>
   <details><summary>All received headers</summary><pre id="baseline-raw"></pre></details>
 </section>
@@ -127,9 +127,13 @@ async function getJson(url, init) {
 }
 
 async function loadBaseline() {
-  baseline = await getJson("/api/headers");
+  const r = await fetch("/api/headers", { cache: "no-store" });
+  baseline = await r.json();
   const rows = Object.entries(baseline.ipHeaders).map(([k, v]) => row([mono(k), mono(v)]));
   rows.push(row([mono("socket remote address"), mono(baseline.socketRemoteAddress)]));
+  // Same ray ID, but the suffix is the data center that handled each side. When Cloudflare
+  // routes across its network, your browser sees the entry colo and the origin sees the exit colo.
+  rows.push(row([mono("cf-ray (response to your browser)"), mono(r.headers.get("cf-ray"))]));
   renderTable(document.getElementById("baseline"), ["Header", "Value received"], rows);
   document.getElementById("baseline-raw").textContent = JSON.stringify(baseline.allHeaders, null, 2);
 }

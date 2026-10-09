@@ -29,6 +29,7 @@ export const PAGE_HTML = /* html */ `<!doctype html>
 <body>
 <h1>Client IP header test</h1>
 <p class="lead">What do <code>X-Forwarded-For</code>, <code>CF-Connecting-IP</code> and <code>True-Client-IP</code> actually contain by the time a request reaches this service?</p>
+<p class="muted">Reference: <a href="https://developers.cloudflare.com/fundamentals/reference/http-headers/" target="_blank" rel="noopener">Cloudflare HTTP headers documentation</a></p>
 
 <section>
   <h2>1. Your normal request</h2>
